@@ -1,0 +1,63 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Show environment
+        shell: bash
+        run: |
+          node --version
+          npm --version
+          echo "TMPDIR=$TMPDIR"
+
+      - name: Validate plugin manifest
+        shell: bash
+        run: |
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+            if (!pkg?.dsh?.bundle?.patch) {
+              console.error('FAIL: package.json is missing dsh.bundle.patch');
+              process.exit(1);
+            }
+            if (!pkg.name || !pkg.version) {
+              console.error('FAIL: package.json is missing name/version');
+              process.exit(1);
+            }
+            console.log('manifest ok:', pkg.name + '@' + pkg.version);
+          "
+
+      - name: Syntax check
+        shell: bash
+        run: |
+          for f in index.js install.mjs lib/fold.mjs lib/format.mjs lib/store.mjs; do
+            echo "-> $f"
+            node --check "$f"
+          done
+
+      - name: Unit tests
+        shell: bash
+        run: node test/fold.test.mjs

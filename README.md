@@ -1,5 +1,8 @@
 # dsh-answer-timing
 
+[![test](https://github.com/liuzhihao-min/dsh-answer-timing/actions/workflows/test.yml/badge.svg)](https://github.com/liuzhihao-min/dsh-answer-timing/actions/workflows/test.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 > 把「这次回答到底花了多少时间、花在哪」变成可查的数据。
 
 给 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）用的耗时统计插件。
@@ -36,12 +39,39 @@
 - DSH `>=0.2.1-rc.2 <0.3.0`
 - Node.js `>=24`
 
-### 三步注册
+### 一条命令
 
-插件通过 DSH 的 bundle 机制加载。把仓库放到任意目录（例如 `D:\plugins\dsh-answer-timing`），然后在**当前 profile 目录**（桌面版是 `%USERPROFILE%\.dsh\profiles\desktop`）里做三件事：
+```bash
+git clone https://github.com/liuzhihao-min/dsh-answer-timing
+cd dsh-answer-timing
+node install.mjs
+```
+
+脚本会做四件事（全部可重复执行，幂等）：
+
+1. `<profile>/.dsh-answer-timing-source` → 本仓库（Windows 用 junction，macOS/Linux 用 symlink）
+2. `<profile>/node_modules/dsh-answer-timing` → 本仓库
+3. `dependencies["dsh-answer-timing"] = "link:.dsh-answer-timing-source"`
+4. `dsh.profile.bundles` 末尾追加 `dsh-answer-timing`
+
+写 `package.json` 前会自动备份成 `package.json.bak-<时间戳>`。然后**完全退出 DSH 再启动**（改 profile 不热加载）。
+
+常用参数：
+
+| 参数 | 作用 |
+| --- | --- |
+| `--dry-run` | 只打印将要做什么，不写文件 |
+| `--profile web` | 指定其它 profile（默认 `desktop`） |
+| `--dsh-home D:\x` | 指定 DSH 目录（默认 `~/.dsh` 或 `$DSH_HOME`） |
+| `--force` | 目标位置是真实目录时，改名备份后继续 |
+| `--uninstall` | 卸载：摘掉 bundles / 依赖 / 两个链接 |
+
+> **卸载时 DSH 必须先退出。** 否则 `node_modules` 里的链接被占用删不掉（脚本会警告并跳过，注册信息仍会清干净，退出后再跑一次即可）。
+
+### 手动注册（不想跑脚本时）
 
 ```powershell
-# 1. 目录联接（用你自己的实际路径）
+# 1. 目录联接（换成你自己的实际路径）
 cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\.dsh-answer-timing-source" "D:\plugins\dsh-answer-timing"
 cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer-timing" "D:\plugins\dsh-answer-timing"
 ```
@@ -106,13 +136,16 @@ cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer
 ```
 .
 ├── index.js            # 插件入口：订阅事件 + 注册工具
+├── install.mjs         # 安装/卸载脚本（幂等，自动备份 package.json）
 ├── cordis.patch.yml    # bundle 插入声明
 ├── lib/
 │   ├── fold.mjs        # 纯函数：事件流 → 逐轮耗时
 │   ├── format.mjs      # 单行摘要 + 三张明细表
 │   └── store.mjs       # JSONL 账本（去重、保留期）
-└── test/
-    └── fold.test.mjs   # node:test，9 个用例
+├── test/
+│   └── fold.test.mjs   # node:test，9 个用例
+└── .github/workflows/
+    └── test.yml        # CI：ubuntu + windows × node 24
 ```
 
 ## 开发与测试

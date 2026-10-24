@@ -9,6 +9,7 @@
   },
   "files": [
     "index.js",
+    "install.mjs",
     "cordis.patch.yml",
     "lib",
     "README.md",
