@@ -39,7 +39,28 @@
 - DSH `>=0.2.1-rc.2 <0.3.0`
 - Node.js `>=24`
 
-### 一条命令（从源码）
+### 最快：一条命令
+
+```bash
+dsh plugin --profile <你的 profile> add dsh-answer-timing
+```
+
+或者直接把仓库地址给它：
+
+```bash
+dsh plugin --profile <你的 profile> add https://github.com/liuzhihao-min/dsh-answer-timing
+```
+
+两种写法都实测过（DSH `0.2.1-rc.2` / pnpm 11）：`dsh plugin add` 底层是 pnpm，
+装完会读取包里的 `dsh.bundle` 清单，**自动把包写进 `dsh.profile.bundles`**——
+不需要手动改 `package.json`，也不需要建 junction。
+
+然后**完全退出 DSH 再启动**。
+
+> 桌面版 profile 名一般是 `desktop`，Web 版是 `web`。国内的网络环境推荐用上面第一种
+> （走 npm），第二种要连 github.com。
+
+### 从源码（想改代码时）
 
 ```bash
 git clone https://github.com/liuzhihao-min/dsh-answer-timing
@@ -68,7 +89,9 @@ node install.mjs
 
 > **卸载时 DSH 必须先退出。** 否则 `node_modules` 里的链接被占用删不掉（脚本会警告并跳过，注册信息仍会清干净，退出后再跑一次即可）。
 
-### 从 npm 安装
+### 从 npm 手动安装（不用 `dsh plugin add` 时）
+
+> 一般用上面的「最快：一条命令」就够了。只有在 CLI 用不了、要自己控制依赖版本时才走这一节。
 
 包已发布：[**`dsh-answer-timing`**](https://www.npmjs.com/package/dsh-answer-timing)
 
