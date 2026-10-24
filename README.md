@@ -39,7 +39,7 @@
 - DSH `>=0.2.1-rc.2 <0.3.0`
 - Node.js `>=24`
 
-### 一条命令
+### 一条命令（从源码）
 
 ```bash
 git clone https://github.com/liuzhihao-min/dsh-answer-timing
@@ -67,6 +67,45 @@ node install.mjs
 | `--uninstall` | 卸载：摘掉 bundles / 依赖 / 两个链接 |
 
 > **卸载时 DSH 必须先退出。** 否则 `node_modules` 里的链接被占用删不掉（脚本会警告并跳过，注册信息仍会清干净，退出后再跑一次即可）。
+
+### 从 npm 安装
+
+包已发布：[**`dsh-answer-timing`**](https://www.npmjs.com/package/dsh-answer-timing)
+
+在**当前 profile 目录**（桌面版一般是 `~/.dsh/profiles/desktop`）里装：
+
+```bash
+cd ~/.dsh/profiles/desktop
+npm install dsh-answer-timing
+```
+
+然后在同一个 `package.json` 里补两处：
+
+```jsonc
+{
+  "dependencies": {
+    "dsh-answer-timing": "^1.0.0"        // ① 依赖
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "dsh-answer-timing"               // ② 末尾追加这一项
+      ]
+    }
+  }
+}
+```
+
+**从 npm 装的不用建 junction** —— 包已经在 `node_modules` 里了。`install.mjs` 是给源码目录用的。
+
+改完同样要**完全退出 DSH 再启动**。
+
+### 两种来源的区别
+
+| 来源 | 命令 | 要 junction 吗 | 适合 |
+| --- | --- | --- | --- |
+| **npm** | `npm install dsh-answer-timing` | 不用 | 只想用，不打算改代码 |
+| **源码** | `git clone` + `node install.mjs` | 要（脚本自动建） | 想改代码、跟着仓库更新 |
 
 ### 手动注册（不想跑脚本时）
 
