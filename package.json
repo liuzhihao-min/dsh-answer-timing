@@ -1,0 +1,59 @@
+{
+  "name": "dsh-answer-timing",
+  "version": "1.0.0",
+  "description": "Answer-level timing breakdown for DSH: model thinking / first token / decode, per-tool cost, and everything else.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24.0.0",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "3.18.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node test/fold.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liuzhihao-min/dsh-answer-timing.git"
+  },
+  "homepage": "https://github.com/liuzhihao-min/dsh-answer-timing#readme",
+  "bugs": {
+    "url": "https://github.com/liuzhihao-min/dsh-answer-timing/issues"
+  },
+  "author": "liuzhihao-min <3128418558@qq.com>",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "dsh",
+    "deepseek-harness",
+    "timing",
+    "profiling",
+    "observability"
+  ]
+}
