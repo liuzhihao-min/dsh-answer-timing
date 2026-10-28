@@ -18,6 +18,15 @@
 
 需要明细时（`detail: true`），给三张表：阶段构成 / 工具累计 / 逐步骤。
 
+**有慢调用时**（单次工具调用 ≥ 3 分钟，可配），那一行下面会单独多出几行，不需要加任何参数：
+
+```
+⚡ 本次 9m12s ＝ 模型 52s（首字 824ms · 生成 40s）＋ 工具 8m05s（pwsh 7m50s · job_output 15s）＋ 其它 15s
+🐢 慢调用 pwsh 7m50s（step 3 · node .tmp/scan_toolcalls.mjs）
+```
+
+慢调用列的是**单次调用**（不是按工具累加），按耗时降序；`detail: true` 时是一张表，`scope: "turns"` 时会把账本里最近 10 条慢调用也列出来。
+
 ## 它算什么
 
 对每一次回答（turn），拆成三段：
@@ -31,6 +40,7 @@
 - **首字（ttft）**：从 `step/start` 到这个 step 第一个推理/文本 chunk 的时间（读 `stream` 里的 `time0`）。
 - **生成（decode）**：首个 chunk 到 `assistant/message` 落定的时间。
 - **总时长**：这一轮第一个带 `data.turn` 的事件到最后一个事件的时间差。
+- **慢调用**：单次工具调用耗时 ≥ `slowMs`（默认 `180000`，即 3 分钟）时单独列出：工具名、耗时、所在 step、一行「参数指纹」（如命令首行、文件路径，≤80 字符）。
 
 ## 安装
 
@@ -164,7 +174,7 @@ cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer
 | `scope` | `last`（默认）/ `turn` / `session` / `turns` |
 | `turn` | 指定轮次（配合 `scope: "turn"`） |
 | `limit` | `scope: "turns"` 取最近几条，默认 10 |
-| `detail` | `true` 时给「阶段构成 / 工具累计 / 逐步骤」三张表 |
+| `detail` | `true` 时给「阶段构成 / 工具累计 / 慢调用 / 逐步骤」明细表（慢调用表只在有慢调用时出现） |
 
 配套技能 `answer-timing` 会让 agent 在每次回答末尾自动附上那一行。
 
@@ -173,7 +183,8 @@ cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer
 - 路径：`$DSH_HOME/timing/turns.jsonl`（未设 `DSH_HOME` 时用 `~/.dsh/timing/turns.jsonl`）
 - 一行一个 turn，按 `sessionId + turn` 去重
 - **只存**：时间戳、各段毫秒数、输出 tokens、工具名、模型名
-- **不存**：提示词、回答正文、工具参数、任何对话内容
+- **慢调用额外存**：工具名、耗时、step、参数指纹（≤80 字符；`token` / `password` 之类已脱敏），只存 ≥ `slowMs` 的调用
+- **不存**：提示词、回答正文、完整工具参数、任何对话内容
 - 默认保留 30 天（读取时按 `retentionDays` 过滤，不改写文件）
 
 ## 配置
@@ -183,6 +194,7 @@ cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer
 | `dataDir` | 空 | 自定义落盘目录 |
 | `retentionDays` | 30 | 历史保留天数 |
 | `maxTurnsInMemory` | 200 | 每会话内存里保留多少轮 |
+| `slowMs` | 180000 | 单次工具调用超过多少毫秒算「慢调用」，默认 3 分钟 |
 
 ## 口径与限制
 
@@ -193,6 +205,8 @@ cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer
 - 宿主重启后，内存里的逐轮状态从零开始；历史请用 `scope: "turns"` 读落盘账本。
 - 这是**观测**插件：不改变任何调度、超时或重试行为。
 
+- **慢调用**：单次工具调用耗时 ≥ `slowMs`（默认 3 分钟）时单独列出，按单次调用统计（含审批等待），耗时按调用开始到结果返回计算。
+
 ## 目录结构
 
 ```
@@ -202,10 +216,10 @@ cmd /c mklink /J "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-answer
 ├── cordis.patch.yml    # bundle 插入声明
 ├── lib/
 │   ├── fold.mjs        # 纯函数：事件流 → 逐轮耗时
-│   ├── format.mjs      # 单行摘要 + 三张明细表
-│   └── store.mjs       # JSONL 账本（去重、保留期）
+│   ├── format.mjs      # 单行摘要 + 明细表（含慢调用表）
+│   └── store.mjs       # JSONL 账本（去重、保留期、慢调用）
 ├── test/
-│   └── fold.test.mjs   # node:test，9 个用例
+│   └── fold.test.mjs   # node:test，14 个用例
 └── .github/workflows/
     └── test.yml        # CI：ubuntu + windows × node 24
 ```

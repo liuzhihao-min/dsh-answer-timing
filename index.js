@@ -4,6 +4,7 @@ import { TimingFold } from "./lib/fold.mjs";
 import { TimingStore } from "./lib/store.mjs";
 import {
   formatAggregateLine,
+  formatSlowLines,
   formatTurnDetail,
   formatTurnLine,
   formatTurnsTable,
@@ -31,12 +32,25 @@ export const Config = z.object({
     .min(8)
     .default(200)
     .description("Human-configured cap on turns kept in memory per session. Default 200."),
+  slowMs: z
+    .natural()
+    .min(1000)
+    .default(180000)
+    .description(
+      "Human-configured millisecond threshold above which a single tool call is listed separately. Default 180000 (3 minutes).",
+    ),
 });
 
 const sessionIdOf = (session) =>
   String(session?.id ?? session?.sessionId ?? session?.key ?? "unknown");
 
 const renderText = (_args, value) => [{ type: "text", text: String(value) }];
+
+/** 追加慢调用行：没有慢调用时输出与原来完全一致。 */
+const withSlowCalls = (text, slowCalls) => {
+  const slow = formatSlowLines(slowCalls);
+  return slow ? text + "\n" + slow : text;
+};
 
 export function apply(ctx, config = {}) {
   if (process.env.DSH_ANSWER_TIMING_DEBUG === "1") {
@@ -50,7 +64,7 @@ export function apply(ctx, config = {}) {
     const id = sessionIdOf(session);
     let fold = folds.get(id);
     if (!fold) {
-      fold = new TimingFold({ maxTurns: config.maxTurnsInMemory });
+      fold = new TimingFold({ maxTurns: config.maxTurnsInMemory, slowMs: config.slowMs });
       folds.set(id, fold);
     }
     lastSessionId = id;
@@ -82,7 +96,7 @@ export function apply(ctx, config = {}) {
     defineTool({
       name: "timing_report",
       description:
-        "Report how long the last answer (or a chosen turn / whole session / recent history) actually took, broken down into model time (first token + decode), per-tool execution time, and everything else. Reads a local ledger; no network, no message content.",
+        "Report how long the last answer (or a chosen turn / whole session / recent history) actually took, broken down into model time (first token + decode), per-tool execution time, and everything else. Individual tool calls at or above the slow threshold (default 3 minutes) are listed separately with a short parameter fingerprint. Reads a local ledger; no network, no message content.",
       parameters: {
         scope: {
           type: "string",
@@ -133,7 +147,14 @@ export function apply(ctx, config = {}) {
 
         if (scope === "session") {
           const aggregate = fold.aggregate();
-          if (!detail) return formatAggregateLine(aggregate);
+          if (!detail) {
+            const slow = [];
+            for (const turnNo of [...fold.turns.keys()].sort((a, b) => a - b)) {
+              const s = fold.summary(turnNo);
+              if (s) slow.push(...s.slowCalls);
+            }
+            return withSlowCalls(formatAggregateLine(aggregate), slow);
+          }
           const lines = [formatAggregateLine(aggregate)];
           const recent = [...fold.turns.keys()].sort((a, b) => a - b).slice(-10);
           for (const turnNo of recent) {
@@ -151,7 +172,9 @@ export function apply(ctx, config = {}) {
             : fold.lastTurn;
         const summary = fold.summary(turnNo);
         if (!summary) return "没有 turn " + turnNo + " 的记录（可用 scope=session 看整体）。";
-        return detail ? formatTurnDetail(summary) : formatTurnLine(summary);
+        return detail
+          ? formatTurnDetail(summary)
+          : withSlowCalls(formatTurnLine(summary), summary.slowCalls);
       },
     }),
   );

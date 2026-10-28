@@ -1,6 +1,6 @@
 {
   "name": "dsh-answer-timing",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Answer-level timing breakdown for DSH: model thinking / first token / decode, per-tool cost, and everything else.",
   "type": "module",
   "main": "index.js",
